@@ -1074,7 +1074,7 @@ bool AuctionEntry::LoadFromDB(Field* fields)
         return false;
     }
 
-    factionTemplateId = auctioneerInfo->faction;
+    factionTemplateId = auctioneerInfo->faction_A;
     auctionHouseEntry = AuctionHouseMgr::GetAuctionHouseEntry(factionTemplateId);
     if (!auctionHouseEntry)
     {
@@ -1200,7 +1200,7 @@ bool AuctionEntry::LoadFromFieldList(Field* fields)
         return false;
     }
 
-    factionTemplateId = auctioneerInfo->faction;
+    factionTemplateId = auctioneerInfo->faction_A;
     auctionHouseEntry = AuctionHouseMgr::GetAuctionHouseEntry(factionTemplateId);
 
     if (!auctionHouseEntry)

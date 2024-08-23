@@ -611,7 +611,10 @@ public:
 
         // Update in memory..
         if (CreatureTemplate const* cinfo = creature->GetCreatureTemplate())
-            const_cast<CreatureTemplate*>(cinfo)->faction = factionId;
+        {
+            const_cast<CreatureTemplate*>(cinfo)->faction_A = factionId;
+            const_cast<CreatureTemplate*>(cinfo)->faction_H = factionId;
+        }
 
         // ..and DB
         PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_UPD_CREATURE_FACTION);
