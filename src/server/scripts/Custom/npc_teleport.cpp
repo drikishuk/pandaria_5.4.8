@@ -402,7 +402,232 @@ class npc_teleport : public CreatureScript
     }
 };
 
+
+#include "ScriptMgr.h"
+#include "ScriptedGossip.h"
+#include "Player.h"
+#include "Creature.h"
+#include "GossipDef.h"
+#include "ObjectMgr.h"
+#include "DBCStores.h"
+#include "WorldSession.h"
+#include "World.h"
+#include "UpdateData.h"
+#include "ScriptedCreature.h"
+
+struct npc_morpher_admin : public ScriptedAI
+{
+public:
+    npc_morpher_admin(Creature* creature) : ScriptedAI(creature), summons(creature) { }
+
+    void InitializeAI() override
+    {
+        me->setActive(true);
+    }
+
+    uint32 startEntryId = 0;
+    float distance = 10.0f;
+    uint32 time = 250;
+    uint32 max = 0;
+    uint32 iterate = 9;
+    bool pause = false;
+    SummonList summons;
+    std::string nameLike = "";
+    std::string modelTextureLike = "";
+
+    uint32 weaponStartDisplay = 0;
+    uint32 totalWeapons = 0;
+
+    void JustSummoned(Creature* creature) override
+    {
+        summons.Summon(creature);
+    }
+
+    void sGossipHello(Player* player) override
+    {
+        //if (player->GetSession()->GetSecurity() != AccountTypes::SEC_ADMINISTRATOR)
+        //{
+        //    //me->Say("Must be admin!", LANG_UNIVERSAL, player);
+        //    return;
+        //}
+
+        ClearGossipMenuFor(player);
+
+        AddGossipItemFor(player, GossipOptionIcon::GOSSIP_ICON_CHAT, "Set start display id " + std::to_string(startEntryId), 0, 1, "", 0, true);
+        AddGossipItemFor(player, GossipOptionIcon::GOSSIP_ICON_CHAT, "Set max " + std::to_string(max), 0, 8, "", 0, true);
+        AddGossipItemFor(player, GossipOptionIcon::GOSSIP_ICON_CHAT, "Set distiance " + std::to_string(distance), 0, 333, "", 0, true);
+        AddGossipItemFor(player, GossipOptionIcon::GOSSIP_ICON_CHAT, "Set iterate " + std::to_string(iterate), 0, 9, "", 0, true);
+        AddGossipItemFor(player, GossipOptionIcon::GOSSIP_ICON_CHAT, "Set time " + std::to_string(time), 0, 2, "", 0, true);
+        AddGossipItemFor(player, GossipOptionIcon::GOSSIP_ICON_CHAT, "pause: " + std::string((pause ? "true" : "false")), 0, 3);
+        AddGossipItemFor(player, GossipOptionIcon::GOSSIP_ICON_CHAT, "back: " + std::to_string(startEntryId - 1), 0, 4);
+        AddGossipItemFor(player, GossipOptionIcon::GOSSIP_ICON_CHAT, "next: " + std::to_string(startEntryId + 1), 0, 5);
+        AddGossipItemFor(player, GossipOptionIcon::GOSSIP_ICON_CHAT, "spiral: " + std::to_string(startEntryId + 1), 0, 7);
+        AddGossipItemFor(player, GossipOptionIcon::GOSSIP_ICON_CHAT, "nameLike: " + nameLike, 0, 10, "", 0, true);
+        AddGossipItemFor(player, GossipOptionIcon::GOSSIP_ICON_CHAT, "DESPAWN: ", 0, 9);
+        AddGossipItemFor(player, GossipOptionIcon::GOSSIP_ICON_CHAT, "go ", 0, 6);
+        SendGossipMenuFor(player, 1, me);
+        return;
+    }
+
+    void sGossipSelect(Player* player, uint32 sender, uint32 gossipId) override
+    {
+        auto actionId = player->PlayerTalkClass->GetGossipOptionAction(gossipId);
+        ClearGossipMenuFor(player);
+
+        if (actionId == 3)
+            pause = !pause;
+        else if (actionId == 4)
+        {
+            startEntryId--;
+            AnnounceDisplay();
+        }
+        else if (actionId == 5)
+        {
+            startEntryId++;
+            AnnounceDisplay();
+        }
+        else if (actionId == 6)
+        {
+            events.Reset();
+            events.ScheduleEvent(1, 100);
+        }
+        else if (actionId == 7)
+        {
+            int x = 0;
+            for (uint32 i = 0; i < max; i++)
+            {
+                auto displayId = startEntryId + i;
+                if (auto dispInfo = sCreatureDisplayInfoStore.LookupEntry(displayId))
+                {
+                    if (auto model = sCreatureModelDataStore.LookupEntry(dispInfo->ModelId))
+                    {
+                      //  if (model->CollisionHeight >= 30.0f || model->CollisionWidth >= 30.0f)
+                      //      continue;
+                      //
+                      //  float xWidth = fabsf(model->GeoBoxMaxX - model->GeoBoxMinX);
+                      //  float yWidth = fabsf(model->GeoBoxMaxY - model->GeoBoxMinY);
+                      //  float zWidth = fabsf(model->GeoBoxMaxZ - model->GeoBoxMinZ);
+                      //
+                        std::string nameLikeLower = nameLike;
+
+                        if (nameLikeLower.empty() && dispInfo->scale > 3)
+                            continue;
+
+                        // Convert nameLike to lowercase
+                        std::transform(nameLike.begin(), nameLike.end(), nameLikeLower.begin(), ::tolower);
+
+                        // Convert model->ModelName to lowercase
+                        std::string modelNameLower = model->ModelPath[0];
+                        std::transform(modelNameLower.begin(), modelNameLower.end(), modelNameLower.begin(), ::tolower);
+
+                        // Check if modelNameLower contains nameLikeLower
+                        if (nameLike.empty() || modelNameLower.find(nameLikeLower) != std::string::npos)
+                        {
+                            float diff = x++;
+                            auto displayId = dispInfo->Displayid;
+                            float posX = me->GetPositionX() + float(x % iterate) * distance;
+                            float posY = me->GetPositionY() + float((float)x / (float)iterate) * distance;
+                            if (auto trigger = DoSummon(3, { posX, posY, me->GetPositionZ(), me->GetOrientation() }, 0, TempSummonType::TEMPSUMMON_MANUAL_DESPAWN))
+                                trigger->SetDisplayId(displayId);
+                        }
+                    }
+                }
+            }
+        }
+        else if (actionId == 9)
+        {
+            summons.DespawnAll();
+        }
+
+        sGossipHello(player);
+    }
+
+    void sGossipSelectCode(Player* player, uint32 menuId, uint32 gossipId, char const* code) override
+    {
+        auto actionId = player->PlayerTalkClass->GetGossipOptionAction(gossipId);
+        ClearGossipMenuFor(player);
+
+        switch (actionId)
+        {
+        case 10:
+            if (!code)
+                nameLike = "";
+            else
+                nameLike = std::string(code);
+            break;
+        }
+
+        if (code)
+        {
+            switch (actionId)
+            {
+            case 1:
+                startEntryId = atol(code);
+                break;
+            case 2:
+                time = atol(code);
+                break;
+            case 8:
+                max = atol(code);
+                break;
+            case 9:
+                iterate = atol(code);
+                iterate = std::max(1u, iterate);
+                break;
+            case 333:
+                distance = atof(code);
+                break;
+            }
+        }
+
+        return sGossipHello(player);
+    }
+
+    void AnnounceDisplay()
+    {
+        std::ostringstream ss;
+        ss << "model: " << startEntryId;
+        // me->MonsterSay(ss.str(), LANG_UNIVERSAL, nullptr);
+        me->SetDisplayId(startEntryId);
+    }
+
+    void UpdateAI(uint32 diff) override
+    {
+        if (pause)
+            return;
+
+        events.Update(diff);
+
+        if (uint32 eventId = events.ExecuteEvent())
+        {
+            if (eventId == 1)
+            {
+                ++startEntryId;
+                AnnounceDisplay();
+                events.RepeatEvent(time);
+            }
+        }
+    }
+
+    EventMap events;
+};
+
+template <class _CreatureAI>
+class CreatureAILoader : public CreatureScript
+{
+public:
+    CreatureAILoader(char const* name) : CreatureScript(name) { }
+
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return new _CreatureAI(creature);
+    }
+};
+
+#define RegisterCreatureAI(name) new CreatureAILoader<name>(#name);
+
 void AddSC_npc_teleport()
 {
     new npc_teleport();
+    RegisterCreatureAI(npc_morpher_admin);
 }

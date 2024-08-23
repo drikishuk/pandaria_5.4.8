@@ -6411,7 +6411,8 @@ void AuraEffect::HandlePeriodicDamageAurasTick(Unit* target, Unit* caster) const
     int32 overkill = damage - int32(target->GetHealth());
     if (overkill < 0)
         overkill = 0;
-
+    //BEN:DEV - New var to hold original damage before recalculation
+    //uint32 originalDamage = damage;
     damage = target->RecaculateDamage(damage);
     overkill = target->RecaculateDamage(overkill);
     SpellPeriodicAuraLogInfo pInfo(this, damage, overkill, absorb, resist, 0.0f, crit);
@@ -6423,7 +6424,9 @@ void AuraEffect::HandlePeriodicDamageAurasTick(Unit* target, Unit* caster) const
 
     caster->ProcDamageAndSpell(target, procAttacker, procVictim, procEx, damage, BASE_ATTACK, GetSpellInfo(), nullptr, ctx);
 
+    //BEN:DEV - Give Deal damage the original damage since it will recalculate the damage inside if its player dmg - modified value is used for logs and other stuff above
     caster->DealDamage(target, damage, &cleanDamage, DOT, GetSpellInfo()->GetSchoolMask(), GetSpellInfo(), true);
+    //caster->DealDamage(target, damage, &cleanDamage, DOT, GetSpellInfo()->GetSchoolMask(), GetSpellInfo(), true);
 
     if (GetSpellInfo()->IsChanneled())
         if (Player* player = caster->ToPlayer())

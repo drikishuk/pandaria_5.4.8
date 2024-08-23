@@ -3583,7 +3583,7 @@ void Player::InitTalentForLevel()
 {
     uint8 level = GetLevel();
     // talents base at level diff (talents = level - 9 but some can be used already)
-    if (level < 15)
+    if (level < 5)
     {
         // Remove all talent points
         if (GetUsedTalentCount() > 0)                           // Free any used talents
@@ -25941,11 +25941,19 @@ void Player::LearnDefaultSkills()
 {
     // learn default race/class spells
     PlayerInfo const* info = sObjectMgr->GetPlayerInfo(GetRace(), GetClass());
+    TC_LOG_INFO("server", "BENDEV: LearnDefaultSkills() Called.");
     for (auto&& id : info->skills)
     {
         auto entry = sSkillRaceClassInfoStore.LookupEntry(id);
+        //TC_LOG_INFO("server", "Entry: '%u'", entry);
+
+        //BENDEV: Remove level req check for default spells - NYI
+        // Original
         if (!entry || entry->ReqLevel > GetLevel())
             continue;
+        // New
+        //if (!entry)
+            //continue;
 
         if (HasSkill(entry->SkillId))
             continue;
@@ -26018,8 +26026,9 @@ void Player::LearnSpecializationSpells()
         if (!spellInfo)
             continue;
 
-        if (spellInfo->SpellLevel > level)
-            continue;
+        //BENDEV: Test remove level req for spec spells - NYI
+        //if (spellInfo->SpellLevel > level)
+            //continue;
 
         LearnSpell(spellInfo->Id, true);
     }
@@ -26138,8 +26147,9 @@ void Player::LearnSkillRewardedSpells(uint32 id, uint32 value)
         if (ability->classmask && !(ability->classmask & classMask))
             continue;
 
-        if (GetLevel() < spell->SpellLevel)
-            continue;
+        //BENDEV: Disable level check for core abilities for level up spells
+        // if (GetLevel() < spell->SpellLevel)
+            //continue;
 
         // need unlearn spell
         if (value < ability->req_skill_value && ability->learnOnGetSkill == ABILITY_LEARNED_ON_GET_PROFESSION_SKILL)
@@ -27735,15 +27745,15 @@ void Player::InitGlyphsForLevel()
 
     uint8 level = GetLevel();
     uint32 slotMask = 0;
-
-    if (level >= 25)
+    // BENDEV: Changed levels here from 25 50 75
+    if (level >= 8)
         slotMask |= 0x01 | 0x02;
-    if (level >= 50)
+    if (level >= 14)
         slotMask |= 0x04 | 0x08;
-    if (level >= 75)
+    if (level >= 20)
         slotMask |= 0x10 | 0x20;
 
-    if (level >= 25)
+    if (level >= 8)
         SetUInt32Value(PLAYER_FIELD_GLYPH_SLOTS_ENABLED, slotMask);
 }
 
@@ -28177,7 +28187,23 @@ void Player::StoreLootItem(uint8 lootSlot, Loot* loot, Object* src, AELootResult
 uint32 Player::CalculateTalentsPoints() const
 {
     // 1 talent point for every 15 levels
-    return uint32(floor(GetLevel() / 15.f));
+    // return uint32(floor(GetLevel() / 15.f));
+
+    // BENDEV: New Talent Points system
+    // No talent points before level 5
+    if (GetLevel() < 5)
+    {
+        return 0;
+    }
+
+    // Cap talent points at 6 if level is 20 or above
+    if (GetLevel() >= 20)
+    {
+        return 6;
+    }
+
+    // Calculate talent points starting from level 5
+    return uint32(floor((GetLevel() - 5) / 3.f)) + 1;
 }
 
 bool Player::IsKnowHowFlyIn(uint32 mapid, uint32 zone) const

@@ -317,7 +317,7 @@ void CharacterBooster::_PrepareInventory(SQLTransaction& trans) const
     }
 
     // insert food to second slot
-    if (Item* item = Item::CreateItem(ITEM_LEMON_FLAVOUR_PUDING, 20, 0))
+    if (Item* item = Item::CreateItem(ITEM_DWARVEN_MILD, 20, 0))
     {
         item->SaveToDB(trans);
 
@@ -329,11 +329,23 @@ void CharacterBooster::_PrepareInventory(SQLTransaction& trans) const
         trans->Append(stmt);
     }
 
+    if (Item* item = Item::CreateItem(ITEM_MELON_JUICE, 20, 0))
+    {
+        item->SaveToDB(trans);
+
+        stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_CHAR_INVENTORY);
+        stmt->setUInt32(0, GUID_LOPART(m_charBoostInfo.charGuid));
+        stmt->setUInt32(1, 0);
+        stmt->setUInt8(2, INVENTORY_SLOT_ITEM_START + 2);
+        stmt->setUInt32(3, item->GetGUIDLow());
+        trans->Append(stmt);
+    }
+
     // insert bag in inventory slots
     uint8 slot = INVENTORY_SLOT_BAG_START;
     for (uint8 i = 0; i < 4; i++)
     {
-        if (Item* item = Item::CreateItem(ITEM_EMBERSILK_BAG, 1, 0))
+        if (Item* item = Item::CreateItem(ITEM_SMALL_BROWN_SATCHEL, 1, 0))
         {
             item->SaveToDB(trans);
 
@@ -388,9 +400,31 @@ std::string CharacterBooster::_SetSpecialization(SQLTransaction& trans, uint8 co
 
 void CharacterBooster::_LearnSpells(SQLTransaction& trans) const
 {
-    std::vector<uint32> spellsToLearn = { SPELL_ARTISAN_RIDING, SPELL_COLD_WHEATHER_FLYING, SPELL_FLIGHT_MASTER_LICENSE, SPELL_WISDOM_OF_FOUR_WINDS };
-    spellsToLearn.push_back(m_charBoostInfo.allianceFaction ? SPELL_SWIFT_PURPLE_GRYPGON : SPELL_SWIFT_PURPLE_WIND_RIDER);
+    // Mount Spells
+    std::vector<uint32> spellsToLearn = { SPELL_JOURNEYMAN_RIDING };
+    spellsToLearn.push_back(m_charBoostInfo.allianceFaction ? SPELL_STRIPED_NIGHTSABER : SPELL_BLACK_SKELETAL_HORSE);
 
+    //BENDEV: Add Mail / Plate to relevant classes
+    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHAR_CLASS);
+    stmt->setUInt32(0, GUID_LOPART(m_charBoostInfo.charGuid));
+
+    uint8 classId = 0;
+    if (PreparedQueryResult result = CharacterDatabase.Query(stmt))
+        classId = (*result)[0].GetUInt8();
+
+    switch (classId) {
+        case CLASS_SHAMAN:
+        case CLASS_HUNTER:
+            spellsToLearn.push_back(SPELL_LEARN_MAIL_ARMOUR);
+            break;
+        case CLASS_WARRIOR:
+        case CLASS_PALADIN:
+        case CLASS_DEATH_KNIGHT:
+            spellsToLearn.push_back(SPELL_LEARN_PLATE_ARMOUR);
+            break;
+       }
+
+    // Learn spells
     for (auto&& spell : spellsToLearn)
         LearnNonExistedSpell(trans, spell);
 }
@@ -454,7 +488,7 @@ std::string CharacterBooster::_EquipItems(SQLTransaction& trans, PreparedItemsMa
     }
 
     for (uint32 i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END; ++i)
-        items << ITEM_EMBERSILK_BAG << " 0 ";
+        items << ITEM_SMALL_BROWN_SATCHEL << " 0 ";
 
     return items.str();
 }
@@ -469,7 +503,7 @@ void CharacterBooster::_SaveBoostedChar(SQLTransaction& trans, std::string items
     stmt->setFloat(2, position[1]);
     stmt->setFloat(3, position[2]);
     stmt->setFloat(4, position[3]);
-    stmt->setUInt16(5, MAP_VALE_OF_ETERNAL_BLOSSOMS);
+    stmt->setUInt16(5, MAP_STORMS_REACH);
     stmt->setString(6, _SetSpecialization(trans, classId));
     stmt->setUInt16(7, AT_LOGIN_FIRST);
     stmt->setString(8, items);
