@@ -2135,6 +2135,8 @@ void AddBattlegroundScripts()
 void AddSC_npc_teleport();
 void AddSC_custom_reward();
 void AddSC_battle_pay_items();
+void AddSC_Player_Scripts();
+
 
 void AddCustomScripts()
 {
@@ -2143,6 +2145,7 @@ void AddCustomScripts()
 AddSC_npc_teleport();
 AddSC_custom_reward();
 AddSC_battle_pay_items();
+AddSC_Player_Scripts();
 
 #endif
     AddSC_Anticheat();

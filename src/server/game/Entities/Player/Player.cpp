@@ -26014,8 +26014,9 @@ void Player::LearnDefaultSkill(SkillRaceClassInfoEntry const* entry)
 }
 
 void Player::LearnSpecializationSpells()
-{
-    auto spells = dbc::GetSpecializetionSpells(GetTalentSpecialization());
+{   
+    uint32 spec = GetTalentSpecialization();
+    auto spells = dbc::GetSpecializetionSpells(spec);
     if (!spells)
         return;
 
@@ -26032,6 +26033,10 @@ void Player::LearnSpecializationSpells()
 
         LearnSpell(spellInfo->Id, true);
     }
+
+    // BENFIND
+    
+    sScriptMgr->OnPlayerActivateSpec(this, spec);
 }
 
 void Player::learnQuestRewardedSpells(Quest const* quest)
@@ -29312,6 +29317,9 @@ void Player::ActivateSpec(uint8 spec)
     if (Group* group = GetGroup())
         if (group->IsLogging())
             group->LogEvent("Member changed spec: %s is now %s", Group::Format(this).c_str(), Group::GetPlayerTalentString(this).c_str());
+
+    //BENDEV: Call Custom Nerf Script 
+    // sScriptMgr->OnPlayerActivateSpec(this, spec);
 }
 
 void Player::ResetTimeSync()

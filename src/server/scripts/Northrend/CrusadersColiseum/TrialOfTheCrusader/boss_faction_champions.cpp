@@ -113,7 +113,8 @@ enum Spells
     SPELL_BLINK                     = 65793,
     SPELL_COUNTERSPELL              = 65790,
     SPELL_FROST_NOVA                = 65792,
-    SPELL_FROSTBOLT                 = 65807,
+    //SPELL_FROSTBOLT                 = 65807,
+    SPELL_FROSTBOLT = 44614,
     SPELL_ICE_BLOCK                 = 65802,
     SPELL_POLYMORPH                 = 65801,
 
