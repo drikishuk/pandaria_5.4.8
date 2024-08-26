@@ -125,7 +125,7 @@ public:
             if (it != _spellCooldowns.end())
                 return false;
 
-            _remainingGcd = 1000;
+            _remainingGcd = 1500;
             _spellCooldowns[spell.SpellID] = spell.Cooldown;
             DoCast(target, spell.SpellID);
             return true;
@@ -136,10 +136,14 @@ public:
             Talk(SAY_AGGRO);
         }
 
+        void JustDied(Unit* killer) override {
+            Talk(SAY_DEATH);
+        }
+
         void AttackStart(Unit* victim) override
         {
             if (victim && me->Attack(victim, true))
-                me->GetMotionMaster()->MoveChase(victim, 30.0f);
+                me->GetMotionMaster()->MoveChase(victim, 28.0f);
         }
 
         void UpdateAI(uint32 diff) override
