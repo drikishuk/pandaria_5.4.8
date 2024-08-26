@@ -11,6 +11,8 @@ enum Spells
     SPELL_FIRE_BLAST = 2136,
     SPELL_BLINK = 65793,
     SPELL_SUMMON_WATER_ELEMENTAL = 31687,
+    SPELL_ARCANE_BRILLIANCE = 1459,
+    SPELL_MAGE_ARMOUR = 6117,
 };
 
 
@@ -52,19 +54,38 @@ public: npc_wandering_mage() : CreatureScript("npc_wandering_mage") {}
               me->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_CONFUSE, true);
               SetEquipmentSlots(false, 47524, EQUIP_NO_CHANGE, EQUIP_NO_CHANGE);
 
-              uint32 GlobalCooldown;
-              uint32 BuffTimer;
+              // Setup Spell Cooldowns
+              std::map<uint32, uint32> _spellCooldowns;
+              _spellCooldowns[SPELL_FROSTFIRE_BOLT] = 2000;
+
+
           }
 
-          EventMap events;
+          uint32 GlobalCooldown = 0;
+          uint32 BuffTimer = 0;
+
+          uint32 BlinkCooldown = 0;
+          uint32 FrostNovaCooldown = 0;
+          uint32 FrostShockTimer = 0;
+         
 
           void Reset() override {
-              events.Reset();
+              GlobalCooldown = 0;
+              BuffTimer = 0;
+          }
+
+          void TriggerCooldown(uint32 cooldownTimer, ) {
+              GlobalCooldown = 1500;
+              cooldownTimer = 
+          }
+
+          void UpdateCooldownTimers() {
+
           }
 
           void EnterCombat(Unit* who) override {
-              events.ScheduleEvent(EVENT_FIRE_BLAST, 5000);
-              events.ScheduleEvent(EVENT_ESCAPE_PLAYER, 10000);
+              //events.ScheduleEvent(EVENT_FIRE_BLAST, 5000);
+              //events.ScheduleEvent(EVENT_ESCAPE_PLAYER, 10000);
           }
 
           void AttackStart(Unit* who) {
@@ -83,32 +104,45 @@ public: npc_wandering_mage() : CreatureScript("npc_wandering_mage") {}
           }
 
           void UpdateAI(uint32 diff) override {
-              // This is where we want to stop if there is no victim
-              if (!UpdateVictim())
-                  return;
+              // Decrease Global Cooldown
+              if (GlobalCooldown > diff)
+                  GlobalCooldown -= diff;
+              else GlobalCooldown = 0;
 
-              events.Update(diff);
+              // Handle Self Buffs
+              if (!me->IsInCombat() && me->IsAlive()) {
+                  if (BuffTimer <= diff) {
+                      if (!GlobalCooldown) {
+                          DoCast(SPELL_ARCANE_BRILLIANCE);
+                          DoCast(SPELL_MAGE_ARMOUR);
 
-              if (me->HasUnitState(UNIT_STATE_CASTING))
-                  return;
+                          GlobalCooldown = 1500;
+                          BuffTimer = 600000;
 
-              if (uint32 eventId = events.ExecuteEvent()) {
-                  switch (eventId) {
-                  case EVENT_ESCAPE_PLAYER:
-                      events.ScheduleEvent(EVENT_BLINK, 500);
-                      events.ScheduleEvent(EVENT_ESCAPE_PLAYER, 15000);
-                      break;
-                  case EVENT_BLINK:
-                      DoCast(SPELL_BLINK);
-                      break;
-                  case EVENT_FIRE_BLAST:
-                      DoCastVictim(SPELL_FIRE_BLAST);
-                      events.ScheduleEvent(EVENT_FIRE_BLAST, 5000);
-                      break;
+                      }
+                      else { // Try again in 30 secs
+                          BuffTimer = 30000;
+                      }
+                  }
+                  else {
+                      BuffTimer -= diff;
                   }
               }
 
-              DoSpellAttackIfReady(SPELL_FROSTFIRE_BOLT);
+              //Return since we have no target
+              if (!UpdateVictim())
+                  return;
+
+              //If we are within melee range to the target
+              if (me->IsWithinMeleeRange(me->GetVictim())) {
+                  DoCast(SPELL_BLINK);
+              }
+              // If we are out of melee range
+              else {
+
+              }
+
+
           }
 
       };
