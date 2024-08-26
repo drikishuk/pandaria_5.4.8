@@ -2136,6 +2136,7 @@ void AddSC_npc_teleport();
 void AddSC_custom_reward();
 void AddSC_battle_pay_items();
 void AddSC_Player_Scripts();
+void AddSC_custom_player_npcs();
 
 
 void AddCustomScripts()
@@ -2146,6 +2147,7 @@ AddSC_npc_teleport();
 AddSC_custom_reward();
 AddSC_battle_pay_items();
 AddSC_Player_Scripts();
+AddSC_custom_player_npcs();
 
 #endif
     AddSC_Anticheat();
