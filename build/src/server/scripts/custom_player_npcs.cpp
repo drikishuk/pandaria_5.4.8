@@ -3,6 +3,8 @@
 #include "AchievementMgr.h"
 #include "CombatAI.h"
 
+#include <vector>
+
 
 enum Spells
 {
@@ -33,123 +35,155 @@ enum eSummons {
     NPC_CONJURED_WATER_ELEMENTAL = 500001,
 };
 
-
-class npc_wandering_mage : public CreatureScript {
-public: npc_wandering_mage() : CreatureScript("npc_wandering_mage") {}
-
-      struct npc_wandering_mageAI : public ScriptedAI {
-
-          npc_wandering_mageAI(Creature* creature) : ScriptedAI(creature) {
-              me->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_KNOCK_BACK, true);
-              me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_GRIP, true);
-              me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_STUN, true);
-              me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_FEAR, true);
-              me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_ROOT, true);
-              me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_FREEZE, true);
-              me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_POLYMORPH, true);
-              me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_HORROR, true);
-              me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_SAPPED, true);
-              me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_CHARM, true);
-              me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_DISORIENTED, true);
-              me->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_CONFUSE, true);
-              SetEquipmentSlots(false, 47524, EQUIP_NO_CHANGE, EQUIP_NO_CHANGE);
-
-              // Setup Spell Cooldowns
-              std::map<uint32, uint32> _spellCooldowns;
-              _spellCooldowns[SPELL_FROSTFIRE_BOLT] = 2000;
+// https://github.com/alexkulya/pandaria_5.4.8/blob/master/src/server/game/AI/PlayerAI/PlayerAI.cpp
 
 
-          }
+class npc_wandering_mage : public CreatureScript
+{
+public:
+    npc_wandering_mage() : CreatureScript("npc_wandering_mage") { }
 
-          uint32 GlobalCooldown = 0;
-          uint32 BuffTimer = 0;
-
-          uint32 BlinkCooldown = 0;
-          uint32 FrostNovaCooldown = 0;
-          uint32 FrostShockTimer = 0;
-         
-
-          void Reset() override {
-              GlobalCooldown = 0;
-              BuffTimer = 0;
-          }
-
-          void TriggerCooldown(uint32 cooldownTimer, ) {
-              GlobalCooldown = 1500;
-              cooldownTimer = 
-          }
-
-          void UpdateCooldownTimers() {
-
-          }
-
-          void EnterCombat(Unit* who) override {
-              //events.ScheduleEvent(EVENT_FIRE_BLAST, 5000);
-              //events.ScheduleEvent(EVENT_ESCAPE_PLAYER, 10000);
-          }
-
-          void AttackStart(Unit* who) {
-              if (!who)
-                  return;
-
-              if (me->Attack(who, true)) {
-                  DoStartMovement(who, 20.0f); // Catch up to 20yds to be able to attack
-                  SetCombatMovement(true);
-              }
-          }
-
-          void JustDied(Unit* killer) override {
-              Talk(SAY_AGGRO);
-              Talk(SAY_DEATH);
-          }
-
-          void UpdateAI(uint32 diff) override {
-              // Decrease Global Cooldown
-              if (GlobalCooldown > diff)
-                  GlobalCooldown -= diff;
-              else GlobalCooldown = 0;
-
-              // Handle Self Buffs
-              if (!me->IsInCombat() && me->IsAlive()) {
-                  if (BuffTimer <= diff) {
-                      if (!GlobalCooldown) {
-                          DoCast(SPELL_ARCANE_BRILLIANCE);
-                          DoCast(SPELL_MAGE_ARMOUR);
-
-                          GlobalCooldown = 1500;
-                          BuffTimer = 600000;
-
-                      }
-                      else { // Try again in 30 secs
-                          BuffTimer = 30000;
-                      }
-                  }
-                  else {
-                      BuffTimer -= diff;
-                  }
-              }
-
-              //Return since we have no target
-              if (!UpdateVictim())
-                  return;
-
-              //If we are within melee range to the target
-              if (me->IsWithinMeleeRange(me->GetVictim())) {
-                  DoCast(SPELL_BLINK);
-              }
-              // If we are out of melee range
-              else {
-
-              }
+    struct npc_wandering_mageAI : public ScriptedAI
+    {
+        npc_wandering_mageAI(Creature* creature) : ScriptedAI(creature) { }
 
 
-          }
+        struct PrioritySpell
+        {
+            uint32 SpellID;
+            uint32 Cooldown;
+            std::function<bool(npc_wandering_mageAI*)> Condition;
+        };
 
-      };
+        std::vector<PrioritySpell> _prioritySpells =
+        {   
+            { 2139, 24000, [](npc_wandering_mageAI* myAI) -> bool  // Counterspell
+                {
+                    return myAI->me->GetVictim()->HasUnitState(UNIT_STATE_CASTING);
+                }
+            },
+            { 2136, 5000, [](npc_wandering_mageAI* myAI) -> bool  // Fire Blast
+                {
+                // no condition needed, cooldown already checked
+                return true;
+                }
+            },
+            { 11366, 0, [](npc_wandering_mageAI* myAI) -> bool  // Pyroblast
+                {
 
-      CreatureAI* GetAI(Creature* creature) const override {
-          return new npc_wandering_mageAI(creature);
-      }
+                    return myAI->me->HasAura(48108); // Hot Streak
+                }
+            },
+            { 44457, 0, [](npc_wandering_mageAI* myAI) -> bool  // Living Bomb
+                {
+                    return !myAI->me->GetVictim()->HasAura(44457, myAI->me->GetGUID()); // Check if target doesn't have living bomb casted by me
+                }
+            },
+            { 31661, 20000, [](npc_wandering_mageAI* myAI) -> bool  // Dragon's Breath
+                {
+                    return myAI->me->GetVictim()->IsWithinMeleeRange(myAI->me) && myAI->me->GetVictim()->isInFront(myAI->me); // Check if target is in melee range and in front of me
+                }
+            },
+            { 122, 20000, [](npc_wandering_mageAI* myAI) -> bool  // Frost Nova
+                {
+                    return myAI->me->GetVictim()->IsWithinMeleeRange(myAI->me); // Check if target is near me
+                }
+            },
+            { 1953, 20000, [](npc_wandering_mageAI* myAI) -> bool  // Blink
+                {
+                    return myAI->me->GetVictim()->IsWithinMeleeRange(myAI->me); // Check if target is in melee range
+                }
+            },
+            { 133, 0, [](npc_wandering_mageAI* myAI) -> bool  // Fireball - no Cooldown
+                {
+                    return true;
+                }
+            }
+        };
+
+        uint32 _remainingGcd = 0;
+        std::unordered_map<uint32, uint32> _spellCooldowns;
+
+        void UpdatePriority()
+        {
+            for (auto& spell : _prioritySpells)
+            {
+                if (!spell.Condition(this))
+                    continue;
+
+                if (Cast(me->GetVictim(), spell))
+                    return;
+            }
+        }
+
+        bool Cast(Unit* target, PrioritySpell const& spell)
+        {
+            if (_remainingGcd > 0)
+                return false;
+
+            auto it = _spellCooldowns.find(spell.SpellID);
+            if (it != _spellCooldowns.end())
+                return false;
+
+            _remainingGcd = 1000;
+            _spellCooldowns[spell.SpellID] = spell.Cooldown;
+            DoCast(target, spell.SpellID);
+            return true;
+        }
+
+        void EnterCombat(Unit* /*who*/) override
+        {
+            Talk(SAY_AGGRO);
+        }
+
+        void AttackStart(Unit* victim) override
+        {
+            if (victim && me->Attack(victim, true))
+                me->GetMotionMaster()->MoveChase(victim, 30.0f);
+        }
+
+        void UpdateAI(uint32 diff) override
+        {
+            if (_remainingGcd >= diff)
+                _remainingGcd -= diff;
+            else
+                _remainingGcd = 0;
+
+            for (auto& cooldown : _spellCooldowns)
+            {
+                if (cooldown.second > diff)
+                    cooldown.second -= diff;
+                else
+                    cooldown.second = 0;
+            }
+
+            // remove 0 cooldowns
+            for (auto it = _spellCooldowns.begin(); it != _spellCooldowns.end();)
+            {
+                if (it->second == 0)
+                    it = _spellCooldowns.erase(it); // erase returns the next iterator
+                else
+                    ++it;
+            }
+
+            if (!UpdateVictim())
+                return;
+
+            if (me->HasUnitState(UNIT_STATE_CASTING))
+                return;
+
+            UpdatePriority();
+
+            if (me->HasUnitState(UNIT_STATE_CASTING))
+                return;
+
+        }
+    };
+
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return new npc_wandering_mageAI(creature);
+    }
 };
 
 void AddSC_custom_player_npcs()
